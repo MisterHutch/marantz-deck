@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10120f">
+  <title>Marantz Deck · SR5010</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/extra.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <main class="deck">
+    <header class="topbar">
+      <div class="identity"><span class="mark">M<span>.</span></span><div><div class="eyebrow">THE LISTENING ROOM</div><h1>MARANTZ <span>DECK</span></h1></div></div>
+      <div class="connection"><span id="dot" class="dot"></span><span id="connection">CONNECTING</span><span id="ip" class="ip"></span><button id="receiver-settings" type="button" aria-label="Receiver settings">SETTINGS</button></div>
+    </header>
+
+    <dialog id="receiver-dialog" aria-labelledby="receiver-dialog-title">
+      <form id="receiver-form">
+        <div class="eyebrow orange">CONNECTION</div>
+        <h2 id="receiver-dialog-title">Find your receiver</h2>
+        <p>Enter the SR5010’s IP address or hostname on your local network. You can find it under Setup → Network → Information on the receiver.</p>
+        <label for="receiver-host">Receiver address</label>
+        <input id="receiver-host" name="host" type="text" placeholder="192.168.1.50" autocomplete="off" required>
+        <p id="receiver-error" class="receiver-error" role="alert" hidden></p>
+        <div class="dialog-actions"><button type="button" id="receiver-cancel">Cancel</button><button type="submit">Save address</button></div>
+      </form>
+    </dialog>
+
+    <nav class="deck-nav" aria-label="Deck sections">
+      <button class="tab active" data-view="control" aria-current="page">CONTROL</button>
+      <button class="tab" data-view="equalizer">EQUALIZER</button>
+      <button class="tab" data-view="setup">SETUP</button>
+    </nav>
+
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <section id="control-view" class="view">
+
+    <section class="hero" aria-label="Receiver status">
+      <div class="hero-copy"><div class="eyebrow orange">AV SURROUND RECEIVER / SR5010</div><h2 id="source-name">Connecting to receiver<span class="cursor">_</span></h2><div id="mode-label" class="mode-label">Please wait</div></div>
+      <div class="hero-side"><div class="eyebrow">MAIN ZONE</div><div id="power-state" class="power-state">—</div><div class="tiny-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    </section>
+
+    <div class="grid">
+      <section class="panel volume-panel" aria-labelledby="volume-heading">
+        <div class="panel-head"><span class="panel-index">01 / LEVEL</span><h3 id="volume-heading">Master volume</h3></div>
+        <div class="volume-readout"><span id="volume-value">—</span><span class="unit">dB</span></div>
+        <input id="volume" type="range" min="-80" max="0" step="0.5" value="-40" aria-label="Master volume in decibels">
+        <div class="scale"><span>−80</span><span>−60</span><span>−40</span><span>−20</span><span>0 dB</span></div>
+        <div class="control-row"><button id="volume-down" class="control-button" aria-label="Volume down">−</button><button id="mute" class="control-button mute-button">MUTE</button><button id="volume-up" class="control-button" aria-label="Volume up">+</button></div>
+        <div class="hint">USE ← / → FOR VOLUME · M TO MUTE</div>
+      </section>
+
+      <section class="panel power-panel" aria-labelledby="power-heading">
+        <div class="panel-head"><span class="panel-index">02 / SYSTEM</span><h3 id="power-heading">Power & sound</h3></div>
+        <div class="power-buttons"><button id="power-on" class="power-button">POWER ON</button><button id="power-off" class="power-button">STANDBY</button></div>
+        <div class="subhead">SOUND MODE</div><div id="modes" class="mode-grid"><button data-mode="Stereo">STEREO</button><button data-mode="Direct">DIRECT</button><button data-mode="Pure Direct">PURE DIRECT</button><button data-mode="Multi Ch Stereo">MULTI CH STEREO</button></div>
+        <div class="system-foot"><span>LOCAL NETWORK CONTROL</span><span id="refresh-time">—</span></div>
+      </section>
+
+      <section class="panel sources-panel" aria-labelledby="sources-heading">
+        <div class="panel-head"><span class="panel-index">03 / INPUTS</span><h3 id="sources-heading">Select source</h3></div>
+        <div id="sources" class="source-grid"><span class="loading">Reading receiver inputs…</span></div>
+      </section>
+    </div>
+    </section>
+
+    <section id="equalizer-view" class="view" hidden>
+      <div class="view-heading"><div><div class="eyebrow orange">AUDIO / GRAPHIC EQ</div><h2>Nine-band equalizer</h2><p>Adjust the All-speaker curve. Changes reach the receiver when you press Apply EQ.</p></div><span class="view-number">02 / 03</span></div>
+      <div class="eq-layout">
+        <section class="panel eq-panel" aria-labelledby="eq-heading">
+          <div class="panel-head"><span class="panel-index">CURVE / ALL SPEAKERS</span><h3 id="eq-heading">Graphic EQ</h3></div>
+          <div class="eq-topline"><span id="eq-state" class="status-tag">LOADING</span><span id="eq-speakers" class="muted-text">—</span></div>
+          <div id="eq-bands" class="eq-bands"></div>
+          <div class="eq-actions"><button id="eq-flat" class="secondary-action">FLAT PREVIEW</button><button id="eq-revert" class="secondary-action">REVERT</button><button id="eq-apply" class="primary-action">APPLY EQ</button></div>
+        </section>
+        <aside class="panel eq-aside"><span class="panel-index">SIGNAL PATH</span><h3>When EQ is heard</h3><p id="eq-explainer">Checking receiver settings…</p><div class="eq-rule"><span>MULT EQ XT</span><strong id="eq-multeq">—</strong></div><div class="eq-rule"><span>SOUND MODE</span><strong id="eq-mode">—</strong></div><div class="eq-rule"><span>GRAPHIC EQ</span><strong id="eq-toggle">—</strong></div><a class="native-link" data-native="/SETUP/AUDIO/GRAPHICEQ/f_audio.asp" target="_blank" rel="noopener">OPEN RECEIVER EQ ↗</a><p class="fine-print">For individual speaker curves, use the receiver editor. Its current All-speaker curve is shown here.</p></aside>
+      </div>
+    </section>
+
+    <section id="setup-view" class="view" hidden>
+      <div class="view-heading"><div><div class="eyebrow orange">SYSTEM / CONFIGURATION</div><h2>Receiver setup</h2><p>Live settings from the SR5010. Choose a value to apply it.</p></div><span class="view-number">03 / 03</span></div>
+      <div class="setup-grid">
+        <section class="panel settings-card"><span class="panel-index">01 / AUDIO PROCESSING</span><h3>Audyssey & EQ</h3>
+          <label class="setting"><span><strong>MultEQ XT</strong><small>Reference calibration or manual EQ path</small></span><select id="set-multeq" data-action="mult-eq"><option value="Reference">Reference</option><option value="L/R Bypass">L/R Bypass</option><option value="Flat">Flat</option><option value="Off">Off</option></select></label>
+          <label class="setting"><span><strong>Dynamic EQ</strong><small>Compensates tonal balance at lower volume</small></span><select id="set-dyneq" data-action="dynamic-eq"><option value="ON">On</option><option value="OFF">Off</option></select></label>
+          <label class="setting"><span><strong>Dynamic Volume</strong><small>Reduces loudness swings</small></span><select id="set-dynvol" data-action="dynamic-volume"><option>Off</option><option>Light</option><option>Medium</option><option>Heavy</option></select></label>
+          <label class="setting"><span><strong>Graphic EQ</strong><small>Uses the nine-band curve when MultEQ is Off</small></span><select id="set-geq" data-action="graphic-eq"><option value="ON">On</option><option value="OFF">Off</option></select></label>
+          <label class="setting"><span><strong>M-DAX</strong><small>Restores detail in compressed music</small></span><select id="set-mdax" data-action="mdax"><option>Off</option><option>Low</option><option>Medium</option><option>High</option></select></label>
+        </section>
+        <section class="panel settings-card"><span class="panel-index">02 / TONE & TIMING</span><h3>Fine tuning</h3>
+          <label class="setting"><span><strong>Tone control</strong><small>Stored per input; unavailable with Dynamic EQ</small></span><select id="set-tone" data-action="tone"><option value="ON">On</option><option value="OFF">Off</option></select></label>
+          <label class="setting"><span><strong>Bass</strong><small>−6 to +6 dB</small></span><select id="set-bass" data-action="bass"></select></label>
+          <label class="setting"><span><strong>Treble</strong><small>−6 to +6 dB</small></span><select id="set-treble" data-action="treble"></select></label>
+          <label class="setting"><span><strong>Audio delay</strong><small>0–200 ms; sync sound with video</small></span><span class="number-control"><input id="set-delay" type="number" min="0" max="200" step="1" value="0" aria-label="Audio delay in milliseconds"><span>ms</span><button id="apply-delay">SET</button></span></label>
+        </section>
+        <section class="panel settings-card"><span class="panel-index">03 / SYSTEM</span><h3>Everyday setup</h3>
+          <label class="setting"><span><strong>ECO mode</strong><small>Reduces power consumption</small></span><select id="set-eco" data-action="eco"><option value="OFF">Off</option><option value="AUTO">Auto</option><option value="ON">On</option></select></label>
+          <label class="setting"><span><strong>Sleep timer</strong><small>Standby after selected minutes</small></span><select id="set-sleep" data-action="sleep"><option value="0">Off</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option></select></label>
+          <p class="fine-print">Changing MultEQ can change how your existing speaker calibration sounds. Speaker distances, levels, and crossovers are available in the receiver's full setup.</p>
+        </section>
+        <section class="panel settings-card native-card"><span class="panel-index">04 / ADVANCED</span><h3>Full receiver setup</h3><p>Open the SR5010’s own setup pages for speaker calibration, input assignment, HDMI, network, and other settings.</p><div class="native-grid"><a data-native="/SETUP/AUDIO/f_audio.asp" target="_blank" rel="noopener">Audio ↗</a><a data-native="/SETUP/VIDEO/f_video.asp" target="_blank" rel="noopener">Video ↗</a><a data-native="/SETUP/INPUTS/f_inputs.asp" target="_blank" rel="noopener">Inputs ↗</a><a data-native="/SETUP/SPEAKERS/f_speakers.asp" target="_blank" rel="noopener">Speakers ↗</a><a data-native="/SETUP/NETWORK/f_network.asp" target="_blank" rel="noopener">Network ↗</a><a data-native="/SETUP/GENERAL/f_general.asp" target="_blank" rel="noopener">General ↗</a></div></section>
+      </div>
+    </section>
+    <footer><span>MARANTZ DECK <b>∙</b> LOCAL CONTROL</span><span>SR5010 <b>∙</b> 2015 SERIES</span></footer>
+  </main>
+</body>
+</html>
