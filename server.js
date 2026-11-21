@@ -199,6 +199,58 @@ export function commandFor(body) {
   throw new Error('Unsupported command');
 }
 
+// Video/Output Settings radio groups on the SR5010's web setup page, and the
+// values each may take. The page posts the whole form, so every field is sent
+// back with its current value and only the requested one changes.
+const videoPage = '/SETUP/VIDEO/OUTPUTSETTINGS/d_video.asp';
+const videoSubmit = '/SETUP/VIDEO/OUTPUTSETTINGS/s_video.asp';
+const videoFields = Object.freeze({
+  videoMode: ['radioVideoMode', ['AUTO', 'GAME', 'MOVI']],
+  conversion: ['radioVideoConvMode', ['ON', 'OFF']],
+  scaler: ['radioIpScaler', ['HTH', 'OFF']],
+  resolution: ['radioVideoScalerResolutionHDMI', ['AUTO', '48P', '10I', '72P', '10P', '10P24', '4K']],
+  progressive: ['radioIpMode', ['AUT', 'VI1', 'VI2']],
+  aspect: ['radioVideoScalerAspect', ['Full', 'Normal']]
+});
+
+export function parseVideoHtml(html) {
+  const video = {};
+  for (const [key, [name, allowed]] of Object.entries(videoFields)) {
+    const inputs = [...html.matchAll(new RegExp(`<INPUT[^>]*name=['"]${name}['"][^>]*>`, 'gi'))].map(match => match[0]);
+    const checked = inputs.find(input => /\schecked/i.test(input));
+    const value = checked?.match(/value=['"]([^'"]*)['"]/i)?.[1] ?? null;
+    video[key] = allowed.includes(value) ? value : null;
+  }
+  if (video.videoMode == null || video.scaler == null) throw new Error('Receiver did not provide video output settings');
+  return video;
+}
+
+export function validateVideoChange(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid video setting');
+  const { setting, value } = body;
+  if (typeof setting !== 'string' || !Object.hasOwn(videoFields, setting) || !videoFields[setting][1].includes(value)) {
+    throw new Error('Invalid video setting');
+  }
+  return { setting, value };
+}
+
+export function videoFormFor(current, change) {
+  const form = new URLSearchParams({ setPureDirectOn: 'OFF', setSetupLock: 'OFF' });
+  for (const [key, [name]] of Object.entries(videoFields)) {
+    const value = key === change.setting ? change.value : current[key];
+    if (value != null) form.set(name, value);
+  }
+  return form;
+}
+
+async function postVideo(form) {
+  const response = await fetch(`http://${requireHost()}${videoSubmit}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form, signal: AbortSignal.timeout(3500)
+  });
+  if (!response.ok) throw new Error(`Receiver returned HTTP ${response.status}`);
+}
+
 async function receiverXml(endpoint) {
   const response = await fetch(`http://${requireHost()}${endpoint}`, { signal: AbortSignal.timeout(3500) });
   if (!response.ok) throw new Error(`Receiver returned HTTP ${response.status}`);
@@ -314,7 +366,8 @@ export function createServer() {
       if (req.method === 'GET' && req.url === '/api/eq') {
         return json(res, 200, parseEqHtml(await receiverPage('/SETUP/AUDIO/GRAPHICEQ/d_audio.asp')));
       }
-      if (req.method === 'POST' && (req.url === '/api/command' || req.url === '/api/eq')) {
+      if (req.method === 'GET' && req.url === '/api/video') return json(res, 200, parseVideoHtml(await receiverPage(videoPage)));
+      if (req.method === 'POST' && (req.url === '/api/command' || req.url === '/api/eq' || req.url === '/api/video')) {
         const origin = req.headers.origin;
         if (origin && origin !== `http://${listenHost}:${port}`) return json(res, 403, { error: 'Invalid origin' });
         if (!req.headers['content-type']?.startsWith('application/json')) return json(res, 415, { error: 'JSON required' });
@@ -332,6 +385,18 @@ export function createServer() {
           if (eqBands.some(band => saved.bands[band] !== body.bands[band])) throw new Error('Receiver did not confirm the EQ change');
           return json(res, 200, { ok: true });
         }
+        if (req.url === '/api/video') {
+          const change = validateVideoChange(body);
+          const current = parseVideoHtml(await receiverPage(videoPage));
+          if (current[change.setting] !== change.value) {
+            await postVideo(videoFormFor(current, change));
+            await new Promise(resolve => setTimeout(resolve, 600));
+            const saved = parseVideoHtml(await receiverPage(videoPage));
+            if (saved[change.setting] !== change.value) throw new Error('Receiver did not confirm the video change');
+            return json(res, 200, saved);
+          }
+          return json(res, 200, current);
+        }
         const command = commandFor(body);
         await sendCommand(command);
         return json(res, 200, { ok: true });
@@ -344,7 +409,7 @@ export function createServer() {
       }
       json(res, 404, { error: 'Not found' });
     } catch (error) {
-      json(res, error instanceof SyntaxError || /^(Unsupported command|Invalid command|Invalid EQ|Enter a valid receiver|Request too large|Invalid \w+ Hz value)/.test(error.message) ? 400 : 502,
+      json(res, error instanceof SyntaxError || /^(Unsupported command|Invalid command|Invalid EQ|Invalid video setting|Enter a valid receiver|Request too large|Invalid \w+ Hz value)/.test(error.message) ? 400 : 502,
         { error: error.message });
     }
   });

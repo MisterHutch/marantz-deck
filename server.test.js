@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commandFor, eqFormFor, parseEqHtml, parseSetup, parseStatus, validateEqBands, validateHost } from './server.js';
+import { commandFor, eqFormFor, parseEqHtml, parseSetup, parseStatus, parseVideoHtml, validateEqBands, validateHost, validateVideoChange, videoFormFor } from './server.js';
 
 test('accepts receiver addresses and rejects URL or command injection', () => {
   assert.equal(validateHost(' 192.168.1.50 '), '192.168.1.50');
@@ -54,4 +54,20 @@ test('parses SR5010 status and available source names', () => {
   assert.deepEqual(parseStatus(main, list).sources, ['GAME', 'Media Player']);
   assert.equal(parseStatus(main, list).volume, -21.5);
   assert.equal(parseStatus(main, list).mode, 'Multi Ch Stereo');
+});
+
+test('reads SR5010 video output settings and posts only allowed changes', () => {
+  const radio = (name, values, checked) => values.map(v => `<INPUT type='radio' name='${name}' value='${v}' onClick='radioBtn()'${v === checked ? ' checked' : ''}>`).join('');
+  const html = radio('radioVideoMode', ['AUTO', 'GAME', 'MOVI'], 'MOVI') + radio('radioVideoConvMode', ['ON', 'OFF'], 'ON') +
+    radio('radioIpScaler', ['HTH', 'OFF'], 'HTH') + radio('radioVideoScalerResolutionHDMI', ['AUTO', '4K'], 'AUTO') +
+    radio('radioIpMode', ['AUT', 'VI1'], 'AUT') + radio('radioVideoScalerAspect', ['Full', 'Normal'], 'Full');
+  const video = parseVideoHtml(html);
+  assert.deepEqual(video, { videoMode: 'MOVI', conversion: 'ON', scaler: 'HTH', resolution: 'AUTO', progressive: 'AUT', aspect: 'Full' });
+  const form = videoFormFor(video, validateVideoChange({ setting: 'scaler', value: 'OFF' }));
+  assert.equal(form.get('radioIpScaler'), 'OFF');
+  assert.equal(form.get('radioVideoMode'), 'MOVI');
+  assert.equal(form.get('radioVideoScalerAspect'), 'Full');
+  assert.throws(() => validateVideoChange({ setting: 'scaler', value: 'OFF\rPWON' }));
+  assert.throws(() => validateVideoChange({ setting: 'setSetupLock', value: 'ON' }));
+  assert.throws(() => parseVideoHtml('<html></html>'));
 });

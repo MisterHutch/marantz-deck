@@ -170,6 +170,36 @@ async function refreshSetup() {
   finally { state.setupLoading = false; }
 }
 
+function renderVideo(v) {
+  setSelect('set-scaler', v.scaler);
+  setSelect('set-videomode', v.videoMode);
+  setSelect('set-conversion', v.conversion);
+}
+
+async function refreshVideo() {
+  if (state.busy || state.videoLoading) return;
+  state.videoLoading = true;
+  try {
+    const response = await fetch('/api/video', { cache: 'no-store' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Video settings unavailable');
+    renderVideo(result);
+  } catch (error) { notice(`Video: ${error.message}`); }
+  finally { state.videoLoading = false; }
+}
+
+async function setVideo(setting, value) {
+  if (state.busy) return;
+  state.busy = true;
+  try {
+    const response = await fetch('/api/video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setting, value }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Video change failed');
+    renderVideo(result);
+  } catch (error) { notice(error.message); }
+  finally { state.busy = false; await refreshVideo(); }
+}
+
 async function refreshEq(force = false) {
   if (state.busy || state.eqLoading || (state.eqDirty && !force)) return;
   state.eqLoading = true;
@@ -233,7 +263,7 @@ function setView(view) {
   state.view = view;
   document.querySelectorAll('.view').forEach(el => { el.hidden = el.id !== `${view}-view`; });
   document.querySelectorAll('.tab').forEach(el => { const active = el.dataset.view === view; el.classList.toggle('active', active); if (active) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current'); });
-  if (view === 'setup') refreshSetup();
+  if (view === 'setup') (async () => { await refreshSetup(); await refreshVideo(); })();
   if (view === 'equalizer') (async () => { await refreshSetup(); await refreshEq(); })();
 }
 
@@ -255,6 +285,7 @@ document.querySelectorAll('select[data-action]').forEach(select => select.addEve
   const value = ['bass', 'treble', 'sleep'].includes(select.dataset.action) ? Number(select.value) : select.value;
   command(select.dataset.action, value);
 }));
+document.querySelectorAll('select[data-video]').forEach(select => select.addEventListener('change', () => setVideo(select.dataset.video, select.value)));
 $('apply-delay').addEventListener('click', () => command('delay', Number($('set-delay').value)));
 $('eq-bands').addEventListener('input', event => {
   const slider = event.target.closest('[data-band]');
@@ -282,6 +313,6 @@ refreshConfig().then(refresh).catch(error => notice(`Settings: ${error.message}`
 setInterval(() => { if (state.view === 'control') refresh(); }, 2500);
 setInterval(() => { if (state.view !== 'control') refresh(); }, 10000);
 setInterval(() => {
-  if (state.view === 'setup') refreshSetup();
+  if (state.view === 'setup') { refreshSetup(); refreshVideo(); }
   if (state.view === 'equalizer') (async () => { await refreshSetup(); await refreshEq(); })();
 }, 12000);
